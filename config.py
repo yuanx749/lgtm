@@ -1,12 +1,6 @@
 class Args:
     id_embed_dim = 10
     M = 5
-    se_idx = [0]
-    ca_idx = []
-    bin_idx = []
-    interactions = list(zip([0] * 12, range(2, 14)))
-    C = [3] + [3] * 11
-    id_covariate = 1
     id_handler = "onehot"
     k = 1
     b = 0.001
@@ -28,7 +22,6 @@ class Args:
     fold = 0
     val_split = False
     early_stop = True
-    cohort = "hmp"
     task = "dr"
     method = "gp"
     save_pred = False

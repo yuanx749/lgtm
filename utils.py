@@ -156,8 +156,7 @@ def get_sobol_indices(func, dataset, attrs):
         dists=dists,
         rng=rng,
     )
-    var_Y = np.var(
+    var_y = np.var(
         np.hstack([sobol_result._f_A, sobol_result._f_B]), axis=1, ddof=1, keepdims=True
     )
-    sobol_agg = np.sum(sobol_result.total_order * var_Y / var_Y.sum(), axis=0)
-    return sobol_result, sobol_agg
+    return sobol_result, var_y

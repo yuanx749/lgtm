@@ -75,6 +75,8 @@ species_abundance = abundance.loc[
 ]
 df_ra = species_abundance.div(species_abundance.sum(axis=1), axis=0)
 df_ra = df_ra.rename_axis("External ID", axis=0)
+y_ori = df_ra.to_numpy()
+y_ori_sample_ids = df_ra.index.to_numpy(copy=True)
 
 # %%
 dysbiosis_file = folder / "dysbiosis_scores.tsv"
@@ -105,6 +107,7 @@ timepoints.sort()
 # %%
 df = df.set_index(["subjectID", "time"])
 df["idx"] = range(len(df))
+sample_ids = df["External ID"].to_numpy(copy=True)
 samples = df.index
 mi = pd.MultiIndex.from_product([subjects, timepoints], names=["subjectID", "time"])
 df_full = df.reindex(mi)
@@ -114,14 +117,14 @@ df = df.reset_index()
 n_samples = len(samples)
 n_subjects = len(subjects)
 n_steps = len(timepoints)
-idx_2d = df_full["idx"].values.reshape(n_subjects, n_steps)
-species = np.array([s.split("|")[-1] for s in df_ra.columns])
+idx_2d = df_full["idx"].to_numpy().reshape(n_subjects, n_steps)
+features = np.array([s.split("|")[-1] for s in df_ra.columns])
 
 # %%
 n_features = len(df_ra.columns)
 df_y = df_full[df_ra.columns]
-y_3d = df_y.values.reshape(n_subjects, n_steps, n_features)
-y = df_y.loc[samples].values
+y_3d = df_y.to_numpy().reshape(n_subjects, n_steps, n_features)
+y = df_y.loc[samples].to_numpy()
 
 # %%
 num_cols = ["time"]
@@ -149,3 +152,51 @@ x_cols = num_cols + cat_cols
 n_covariates = x.shape[1]
 
 # %%
+se_idx = [x_cols.index(col) for col in num_cols]
+id_covariate = x_cols.index("subjectID") if "subjectID" in x_cols else None
+interactions = []
+C = []
+if num_cols:
+    time_idx = x_cols.index("time") if "time" in x_cols else se_idx[0]
+    for i, cat_col in enumerate(cat_cols):
+        cat_idx = len(num_cols) + i
+        if id_covariate is not None and cat_idx == id_covariate:
+            continue
+        n_cat = n_cat_lst[i] + int(df[cat_col].isna().any())
+        interactions.append([time_idx, cat_idx])
+        C.append(n_cat)
+ca_idx = []
+bin_idx = []
+
+# %%
+__all__ = [
+    "df",
+    "df_full",
+    "df_y",
+    "y",
+    "y_ori",
+    "y_ori_sample_ids",
+    "y_3d",
+    "samples",
+    "sample_ids",
+    "subjects",
+    "timepoints",
+    "n_samples",
+    "n_subjects",
+    "n_steps",
+    "idx_2d",
+    "features",
+    "n_features",
+    "x",
+    "x_num",
+    "x_cat",
+    "x_cols",
+    "n_covariates",
+    "n_cat_lst",
+    "se_idx",
+    "ca_idx",
+    "bin_idx",
+    "interactions",
+    "C",
+    "id_covariate",
+]

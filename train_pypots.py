@@ -13,7 +13,7 @@ from pypots.optim import Adam
 from pypots.utils.random import set_random_seed
 
 from data import split_impute, split_forecast
-from utils import clr, get_vars, multi_replace, nansum
+from utils import clr, get_vars, multi_replace
 from utils2 import calc_mse, calc_cce
 
 class CCE(Criterion):
@@ -162,9 +162,11 @@ def train1fold(attrs, args):
     )
 
     if args.save:
+        output_dir = Path("output")
+        output_dir.mkdir(exist_ok=True)
         y_impute_3d = np.full(y_3d.shape, np.nan)
         y_impute_3d[indicating_mask] = imputation[indicating_mask]
-        np.save(Path("output") / f"{args.name}.npy", y_impute_3d)
+        np.save(output_dir / f"{args.name}.npy", y_impute_3d)
     return results
 
 

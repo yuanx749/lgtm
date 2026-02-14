@@ -1,6 +1,6 @@
 import argparse
 import importlib
-import logging
+import json
 import os
 import pprint
 import time
@@ -22,18 +22,16 @@ def objective(train_func, attrs, args, trial: optuna.trial.Trial):
     print(f"Trial {trial.number}")
     print(trial.params)
     best_epoch = results["best_epoch"]
-    vmse = results["best_mse"]
-    vcce = results["best_cce"]
     tmse = results["test_mse"]
     tcce = results["test_cce"]
     run_time = results["run_time"]
     trial.set_user_attr("best_epoch", best_epoch)
+    trial.set_user_attr("run_time", run_time)
     trial.set_user_attr("test_mse", tmse)
     trial.set_user_attr("test_cce", tcce)
-    trial.set_user_attr("run_time", run_time)
     if args.transform is not None:
-        return vmse
-    return vcce
+        return results["best_mse"]
+    return results["best_cce"]
 
 
 def tune(train_func, attrs, args, log_name=None):
@@ -42,16 +40,9 @@ def tune(train_func, attrs, args, log_name=None):
     method = args.method
     log_dir = Path("logs") / f"{cohort}-{task}-{method}"
     log_dir.mkdir(parents=True, exist_ok=True)
-    logger = optuna.logging.get_logger("optuna")
     journal_dir = Path("journals")
     journal_dir.mkdir(exist_ok=True)
     if log_name is not None:
-        for h in logger.handlers[::-1]:
-            if isinstance(h, logging.FileHandler):
-                h.close()
-                logger.removeHandler(h)
-        log_file = f"{log_name}.log"
-        logger.addHandler(logging.FileHandler(log_dir / log_file, mode="a"))
         journal_path = str(journal_dir / f"{cohort}-{task}-{method}.log")
         lock_obj = optuna.storages.journal.JournalFileOpenLock(journal_path)
         storage = optuna.storages.JournalStorage(
@@ -74,17 +65,44 @@ def tune(train_func, attrs, args, log_name=None):
             n_jobs=1,
         )
     else:
-        args.save = True
         study = optuna.load_study(
             study_name=study_name,
             storage=storage,
         )
         best_trial = study.best_trial
-        logger.info(best_trial.params)
-        logger.info(best_trial.user_attrs)
-        logger.info(os.environ.get("SLURM_JOB_ID"))
         vars(args).update(best_trial.params)
-    return args
+    return study
+
+
+def write_summary(args, study, log_name):
+    best_trial = study.best_trial
+    slurm_job_id = os.environ.get("SLURM_JOB_ID")
+    slurm_submit_dir = os.environ.get("SLURM_SUBMIT_DIR")
+    slurm_stdout = None
+    if slurm_job_id and slurm_submit_dir:
+        slurm_stdout = str(
+            Path(slurm_submit_dir) / "slurm" / f"slurm-{slurm_job_id}.out"
+        )
+    summary = {
+        "study": {
+            "name": study.study_name,
+            "n_trials": len(study.trials),
+        },
+        "best_trial": {
+            "number": best_trial.number,
+            "params": best_trial.params,
+            "user_attrs": best_trial.user_attrs,
+            "values": best_trial.values,
+        },
+        "args": get_vars(args),
+        "slurm_stdout": slurm_stdout,
+    }
+    log_dir = Path("logs") / f"{args.cohort}-{args.task}-{args.method}"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"{log_name}.log"
+    with open(log_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f)
+
 
 if __name__ == "__main__":
 
@@ -123,12 +141,14 @@ if __name__ == "__main__":
 
     attrs = importlib.import_module(f"{args.cohort}_data")
 
-    args = tune(
+    log_name = f"f{args.fold}-s{args.seed}-{args.suffix}"
+    study = tune(
         train1fold,
         attrs,
         args,
-        log_name=f"f{args.fold}-s{args.seed}-{args.suffix}",
+        log_name=log_name,
     )
     if not args.tune:
         results = train1fold(attrs, args)
         pprint.pp(get_vars(args))
+        write_summary(args, study, log_name)

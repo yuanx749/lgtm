@@ -6,27 +6,26 @@ import torch
 from scipy.special import softmax
 
 
-def plot_si_heatmap(theta, sobol_result, sobol_agg, col_labels):
+def plot_si_heatmap(theta, sobol_result, var_y, col_labels, rotation=45):
     colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
 
     topic_props = np.mean(theta, axis=0)
     l_sorted = np.argsort(topic_props)[::-1]
 
-    fig = plt.figure(figsize=(9, 5))
+    fig = plt.figure(figsize=(8, 5))
     gs = fig.add_gridspec(
         2,
         3,
-        width_ratios=[0.6, 8, 0.5],
+        width_ratios=[1, 8, 0.4],
         height_ratios=[6, 0.8],
-        hspace=0.15,
-        wspace=0.15,
+        hspace=0.05,
+        wspace=0.05,
     )
 
     ax_stack = fig.add_subplot(gs[0, 0])
     ax_sobol = fig.add_subplot(gs[0, 1])
     ax_cbar = fig.add_subplot(gs[0, 2])
-    ax_agg_left = fig.add_subplot(gs[1, 0])
-    ax_agg_right = fig.add_subplot(gs[1, 1])
+    ax_agg = fig.add_subplot(gs[1, 1])
 
     topic_props_sorted = topic_props[l_sorted]
     topic_colors_sorted = [colors[i % len(colors)] for i in range(len(l_sorted))]
@@ -43,13 +42,24 @@ def plot_si_heatmap(theta, sobol_result, sobol_agg, col_labels):
 
     ax_stack.set_xlim(0, 1)
     ax_stack.set_ylim(0, 1)
-    ax_stack.set_xticks([])
+    ax_stack.set_xticks([0, 1])
+    ax_stack.set_xticklabels([f"{max_prop:.2f}", "0"], fontsize=10)
     ax_stack.set_yticks([])
+    ax_stack.set_xlabel("Topic prop.", fontsize=10)
     for spine in ax_stack.spines.values():
         spine.set_visible(False)
+    ax_stack.spines["bottom"].set_visible(True)
 
-    sobol_ordered = sobol_result.total_order[l_sorted, :]
-    m = ax_sobol.pcolormesh(sobol_ordered, cmap="Blues", vmin=0, vmax=1, shading="flat")
+    sobol_plot = sobol_result.total_order * var_y / var_y.sum()
+    sobol_agg = np.sum(sobol_plot, axis=0)
+    sobol_ordered = sobol_plot[l_sorted, :]
+
+    gamma = 0.4
+    vmin = np.min(sobol_plot)
+    vmax = 1
+    norm = mpl.colors.PowerNorm(gamma, vmin=vmin, vmax=vmax)
+
+    m = ax_sobol.pcolormesh(sobol_ordered, cmap="Blues", norm=norm, shading="flat")
     ax_sobol.set_xlim(0, sobol_ordered.shape[1])
     ax_sobol.set_ylim(0, sobol_ordered.shape[0])
     ax_sobol.invert_yaxis()
@@ -57,27 +67,27 @@ def plot_si_heatmap(theta, sobol_result, sobol_agg, col_labels):
     ax_sobol.set_xticklabels([])
     ax_sobol.set_yticks([])
     ax_sobol.set_yticklabels([])
-    plt.colorbar(m, cax=ax_cbar)
+    cbar = plt.colorbar(m, cax=ax_cbar)
+    cbar.set_label("Covariate importance")
 
-    ax_agg_left.axis("off")
-    sobol_agg_2d = np.asarray(sobol_agg).reshape(1, -1)
-    ax_agg_right.pcolormesh(sobol_agg_2d, cmap="Blues", vmin=0, vmax=1, shading="flat")
-    ax_agg_right.set_xlim(0, sobol_ordered.shape[1])
-    ax_agg_right.set_ylim(0, 1)
-    ax_agg_right.invert_yaxis()
-    ax_agg_right.set_xticks(np.arange(sobol_ordered.shape[1]) + 0.5)
+    sobol_agg_2d = sobol_agg.reshape(1, -1)
+    ax_agg.pcolormesh(sobol_agg_2d, cmap="Blues", norm=norm, shading="flat")
+    ax_agg.set_xlim(0, sobol_ordered.shape[1])
+    ax_agg.set_ylim(0, 1)
+    ax_agg.invert_yaxis()
+    ax_agg.set_xticks(np.arange(sobol_ordered.shape[1]) + 0.5)
     if len(col_labels) > 0:
-        ax_agg_right.set_xticklabels(
-            col_labels, ha="right", rotation=45, rotation_mode="anchor"
+        ax_agg.set_xticklabels(
+            col_labels, ha="right", rotation=rotation, rotation_mode="anchor"
         )
-    ax_agg_right.set_yticks([])
+    ax_agg.set_yticks([])
 
-    plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.15)
+    plt.subplots_adjust(left=0.08, right=0.92, top=0.95, bottom=0.18)
 
-    return fig, (ax_stack, ax_sobol, ax_cbar, ax_agg_left, ax_agg_right)
+    return fig, (ax_stack, ax_sobol, ax_cbar, ax_agg)
 
 
-def plot_topics(B, theta, taxa=None, top_k=5, threshold=0.03, num_plot=None):
+def plot_topics(B, theta, taxa=None, top_k=5, threshold=0.01, num_plot=None):
     colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
     if taxa is None:
         taxa = np.arange(B.shape[1])
@@ -86,8 +96,22 @@ def plot_topics(B, theta, taxa=None, top_k=5, threshold=0.03, num_plot=None):
     l_sorted = np.argsort(np.mean(theta, axis=0))[::-1]
     n_plot = num_topics if num_plot is None else min(num_plot, num_topics)
 
-    fig, axes = plt.subplots(n_plot, 1, figsize=(2, 2 * n_plot), sharex=False)
-    fig.subplots_adjust(wspace=0.1)
+    bar_counts = []
+    for l in l_sorted[:n_plot]:
+        topic_weights = B[l]
+        valid_indices = np.where(np.abs(topic_weights) > threshold)[0]
+        bar_counts.append(
+            min(top_k, len(valid_indices)) if len(valid_indices) > 0 else 1
+        )
+    height_per_bar = 0.4
+    fig, axes = plt.subplots(
+        n_plot,
+        1,
+        figsize=(2, sum(b * height_per_bar for b in bar_counts)),
+        sharex=True,
+        gridspec_kw={"height_ratios": bar_counts},
+    )
+    fig.subplots_adjust(wspace=0.1, hspace=0.2)
     if n_plot == 1:
         axes = [axes]
 
@@ -105,6 +129,9 @@ def plot_topics(B, theta, taxa=None, top_k=5, threshold=0.03, num_plot=None):
         axes[cnt].invert_yaxis()
         axes[cnt].set_xlabel("")
         axes[cnt].set_ylabel("")
+        axes[cnt].tick_params(labelbottom=False)
+    axes[-1].tick_params(labelbottom=True)
+    axes[-1].set_xlabel("Taxa abundance")
 
     return fig, axes
 
@@ -116,7 +143,7 @@ def plot_topic(
     l,
     taxa=None,
     top_n=20,
-    threshold=0.03,
+    threshold=0.01,
     figsize=(24, 1),
 ):
     colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
@@ -159,6 +186,7 @@ def plot_gp_id_subplot(
     l,
     idx,
     plot_softmax=True,
+    xlabel=None,
 ):
     module = model.covariate_modules[idx]
 
@@ -177,6 +205,8 @@ def plot_gp_id_subplot(
 
     title = rf"$g_{{{cnt + 1}}}^{{({idx + 1})}}(\text{{id}})$"
     ax.set_title(title)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
 def plot_gp_se_subplot(
@@ -189,13 +219,13 @@ def plot_gp_se_subplot(
     idx,
     plot_softmax=True,
     repeats=100,
-    color=None,
+    xlabel=None,
 ):
     module = model.covariate_modules[idx]
-
     colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
-    if color is None:
-        color = colors[0]
+
+    cts_covar = module.index
+    cts_name = attrs.x_cols[cts_covar]
 
     timepoints = getattr(attrs, "timepoints")
     T = getattr(attrs, "n_steps")
@@ -237,11 +267,13 @@ def plot_gp_se_subplot(
         errorbar=("sd", 1),
         ax=ax,
         linestyle="",
-        color=color,
+        color=colors[0],
     )
 
-    title = rf"$g_{{{cnt + 1}}}^{{({idx + 1})}}(\text{{time}})$"
+    title = rf"$g_{{{cnt + 1}}}^{{({idx + 1})}}(\text{{{cts_name}}})$"
     ax.set_title(title)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
 def plot_gp_prod_subplot(
@@ -254,13 +286,13 @@ def plot_gp_prod_subplot(
     idx,
     plot_softmax=True,
     repeats=100,
-    colors=None,
+    xlabel=None,
 ):
     module = model.covariate_modules[idx]
+    colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
 
-    if colors is None:
-        colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
-
+    cts_covar = module.cts_covar
+    cts_name = attrs.x_cols[cts_covar]
     cat_covar = module.cat_covar
     cat_name = attrs.x_cols[cat_covar]
     labels = attrs.df[cat_name].cat.categories
@@ -312,11 +344,11 @@ def plot_gp_prod_subplot(
             color=colors[code],
         )
 
-    title = (
-        rf"$g_{{{cnt + 1}}}^{{({idx + 1})}}(\text{{time}}\times\text{{{cat_name}}})$"
-    )
+    title = rf"$g_{{{cnt + 1}}}^{{({idx + 1})}}(\text{{{cts_name}}}\times\text{{{cat_name}}})$"
     ax.set_title(title)
     ax.legend()
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
 def plot_gp_ca_subplot(
@@ -327,12 +359,10 @@ def plot_gp_ca_subplot(
     l,
     idx,
     plot_softmax=True,
-    colors=None,
+    xlabel=None,
 ):
     module = model.covariate_modules[idx]
-
-    if colors is None:
-        colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
+    colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
 
     timepoints = getattr(attrs, "timepoints")
     T = getattr(attrs, "n_steps")
@@ -354,6 +384,8 @@ def plot_gp_ca_subplot(
     title = rf"$g_{{{cnt + 1}}}^{{({idx + 1})}}(\text{{{cat_name}}})$"
     ax.set_title(title)
     ax.legend()
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
 def plot_gp(
@@ -366,10 +398,18 @@ def plot_gp(
     plot_softmax=True,
     repeats=100,
     figsize=(24, 3),
+    plot_id=False,
+    xlabel=None,
 ):
-    colors = list(map(mpl.colors.to_hex, mpl.color_sequences["tab10"]))
+    modules = []
+    for idx, module in enumerate(model.covariate_modules):
+        if module.covar_type == "ID" and not plot_id:
+            continue
+        if module.covar_type == "BIN":
+            continue
+        modules.append((idx, module))
 
-    n_plot = len(model.covariate_modules)
+    n_plot = len(modules)
     fig, ax = plt.subplots(
         1,
         n_plot,
@@ -382,24 +422,39 @@ def plot_gp(
         ax = [ax]
     if plot_softmax and n_plot > 0:
         ax[0].set_ylim(-0.05, 1.05)
+    ax[0].set_ylabel("GP component value")
 
-    for idx, module in enumerate(model.covariate_modules):
+    for plot_idx, (idx, module) in enumerate(modules):
+        if isinstance(xlabel, (list, tuple)):
+            xlabel_i = xlabel[plot_idx] if plot_idx < len(xlabel) else None
+        else:
+            xlabel_i = xlabel
+        if xlabel_i is None:
+            xlabel_i = "Time"
+
         if module.covar_type == "ID":
             id_si_idx = model.id_idx[0] if getattr(model, "id_idx", []) else None
             plot_gp_id_subplot(
-                ax[idx], model, attrs, cnt, l, idx, plot_softmax=plot_softmax
+                ax[plot_idx],
+                model,
+                attrs,
+                cnt,
+                l,
+                idx,
+                plot_softmax=plot_softmax,
+                xlabel=xlabel_i,
             )
             if sobol_result is not None and id_si_idx is not None:
                 try:
                     si = sobol_result.total_order[l, id_si_idx]
-                    title = ax[idx].get_title()
-                    ax[idx].set_title(f"{title}\nSI={si:.3f}")
+                    title = ax[plot_idx].get_title()
+                    ax[plot_idx].set_title(f"{title}\nSI={si:.3f}")
                 except Exception:
                     pass
         elif module.covar_type == "SE":
             se_si_idx = model.se_idx[0] if getattr(model, "se_idx", []) else None
             plot_gp_se_subplot(
-                ax[idx],
+                ax[plot_idx],
                 model,
                 dataset,
                 attrs,
@@ -408,18 +463,18 @@ def plot_gp(
                 idx,
                 plot_softmax=plot_softmax,
                 repeats=repeats,
-                color=colors[0],
+                xlabel=xlabel_i,
             )
             if sobol_result is not None and se_si_idx is not None:
                 try:
                     si = sobol_result.total_order[l, se_si_idx]
-                    title = ax[idx].get_title()
-                    ax[idx].set_title(f"{title}\nSI={si:.3f}")
+                    title = ax[plot_idx].get_title()
+                    ax[plot_idx].set_title(f"{title}\nSI={si:.3f}")
                 except Exception:
                     pass
         elif module.covar_type == "PROD":
             plot_gp_prod_subplot(
-                ax[idx],
+                ax[plot_idx],
                 model,
                 dataset,
                 attrs,
@@ -428,31 +483,31 @@ def plot_gp(
                 idx,
                 plot_softmax=plot_softmax,
                 repeats=repeats,
-                colors=colors,
+                xlabel=xlabel_i,
             )
             if sobol_result is not None:
                 try:
                     si = sobol_result.total_order[l, module.cat_covar]
-                    title = ax[idx].get_title()
-                    ax[idx].set_title(f"{title}\nSI={si:.3f}")
+                    title = ax[plot_idx].get_title()
+                    ax[plot_idx].set_title(f"{title}\nSI={si:.3f}")
                 except Exception:
                     pass
         elif module.covar_type == "CA":
             plot_gp_ca_subplot(
-                ax[idx],
+                ax[plot_idx],
                 model,
                 attrs,
                 cnt,
                 l,
                 idx,
                 plot_softmax=plot_softmax,
-                colors=colors,
+                xlabel=xlabel_i,
             )
             if sobol_result is not None:
                 try:
                     si = sobol_result.total_order[l, module.index]
-                    title = ax[idx].get_title()
-                    ax[idx].set_title(f"{title}\nSI={si:.3f}")
+                    title = ax[plot_idx].get_title()
+                    ax[plot_idx].set_title(f"{title}\nSI={si:.3f}")
                 except Exception:
                     pass
         elif module.covar_type == "BIN":
@@ -468,11 +523,15 @@ def plot_latent_se_subplot(
     theta,
     l,
     idx,
+    plot_pointplot=False,
+    xlabel=None,
 ):
     np.random.seed(0)
     sns.stripplot(data=attrs.df, x="time", y=theta[:, l], alpha=0.2, ax=ax)
-    ax.set_xticklabels([])
-    ax.set_xlabel("")
+    if plot_pointplot:
+        sns.pointplot(data=attrs.df, x="time", y=theta[:, l], errorbar=None, ax=ax)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
 def plot_latent_prod_subplot(
@@ -482,6 +541,8 @@ def plot_latent_prod_subplot(
     theta,
     l,
     idx,
+    plot_pointplot=False,
+    xlabel=None,
 ):
     module = model.covariate_modules[idx]
     cat_covar = module.cat_covar
@@ -496,8 +557,18 @@ def plot_latent_prod_subplot(
         legend=False,
         ax=ax,
     )
-    ax.set_xticklabels([])
-    ax.set_xlabel("")
+    if plot_pointplot:
+        sns.pointplot(
+            data=attrs.df,
+            x="time",
+            y=theta[:, l],
+            hue=cat_name,
+            errorbar=None,
+            legend=False,
+            ax=ax,
+        )
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
 def plot_latent_ca_subplot(
@@ -507,6 +578,8 @@ def plot_latent_ca_subplot(
     theta,
     l,
     idx,
+    plot_pointplot=False,
+    xlabel=None,
 ):
     module = model.covariate_modules[idx]
     cat_covar = module.index
@@ -521,12 +594,40 @@ def plot_latent_ca_subplot(
         legend=False,
         ax=ax,
     )
-    ax.set_xticklabels([])
-    ax.set_xlabel("")
+    if plot_pointplot:
+        sns.pointplot(
+            data=attrs.df,
+            x="time",
+            y=theta[:, l],
+            hue=cat_name,
+            errorbar=None,
+            legend=False,
+            ax=ax,
+        )
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
 
 
-def plot_latent(model, attrs, theta, l, plot_softmax=True, figsize=(24, 3)):
-    n_plot = len(model.covariate_modules)
+def plot_latent(
+    model,
+    attrs,
+    theta,
+    l,
+    plot_softmax=True,
+    figsize=(24, 3),
+    plot_pointplot=False,
+    plot_id=False,
+    xlabel=None,
+):
+    modules = []
+    for idx, module in enumerate(model.covariate_modules):
+        if module.covar_type == "ID" and not plot_id:
+            continue
+        if module.covar_type == "BIN":
+            continue
+        modules.append((idx, module))
+
+    n_plot = len(modules)
     fig, ax = plt.subplots(
         1,
         n_plot,
@@ -539,15 +640,63 @@ def plot_latent(model, attrs, theta, l, plot_softmax=True, figsize=(24, 3)):
         ax = [ax]
     if plot_softmax and n_plot > 0:
         ax[0].set_ylim(-0.05, 1.05)
+    ax[0].set_ylabel("Topic prop.")
 
-    for idx, module in enumerate(model.covariate_modules):
-        if module.covar_type in ["ID", "BIN"]:
-            continue
+    def _thin_xticks(ax_i):
+        ticks = ax_i.get_xticks()
+        tick_labels = [t.get_text() for t in ax_i.get_xticklabels()]
+        n_ticks = len(tick_labels)
+        step = max(1, n_ticks // 5)
+        new_labels = [
+            int(float(t)) if i % step == 0 and t else ""
+            for i, t in enumerate(tick_labels)
+        ]
+        ax_i.set_xticks(ticks)
+        ax_i.set_xticklabels(new_labels)
+
+    for plot_idx, (idx, module) in enumerate(modules):
+        if isinstance(xlabel, (list, tuple)):
+            xlabel_i = xlabel[plot_idx] if plot_idx < len(xlabel) else None
+        else:
+            xlabel_i = xlabel
+        if xlabel_i is None:
+            xlabel_i = "Time"
+
         if module.covar_type == "SE":
-            plot_latent_se_subplot(ax[idx], model, attrs, theta, l, idx)
+            plot_latent_se_subplot(
+                ax[plot_idx],
+                model,
+                attrs,
+                theta,
+                l,
+                idx,
+                plot_pointplot=plot_pointplot,
+                xlabel=xlabel_i,
+            )
+            _thin_xticks(ax[plot_idx])
         elif module.covar_type == "PROD":
-            plot_latent_prod_subplot(ax[idx], model, attrs, theta, l, idx)
+            plot_latent_prod_subplot(
+                ax[plot_idx],
+                model,
+                attrs,
+                theta,
+                l,
+                idx,
+                plot_pointplot=plot_pointplot,
+                xlabel=xlabel_i,
+            )
+            _thin_xticks(ax[plot_idx])
         elif module.covar_type == "CA":
-            plot_latent_ca_subplot(ax[idx], model, attrs, theta, l, idx)
+            plot_latent_ca_subplot(
+                ax[plot_idx],
+                model,
+                attrs,
+                theta,
+                l,
+                idx,
+                plot_pointplot=plot_pointplot,
+                xlabel=xlabel_i,
+            )
+            _thin_xticks(ax[plot_idx])
 
     return fig, ax

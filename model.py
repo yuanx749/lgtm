@@ -159,6 +159,7 @@ class BayesianLinear(nn.Module):
         )
         return torch.sum(log_q_A, dim=[1, 2]) / (self.input_dim * self.output_dim)
 
+
 class MLPDecoder(nn.Module):
     def __init__(self, latent_dim, y_num_dim, hidden_dim, p_drop=0.0):
         super().__init__()
@@ -488,6 +489,7 @@ class CovariateModule(nn.Module):
             log_q_A = log_q_A + torch.sum(log_q_alpha, dim=1)
         return log_q_A
 
+
 class DGBFGP(nn.Module):
 
     def __init__(
@@ -500,12 +502,12 @@ class DGBFGP(nn.Module):
         id_embed_dim,
         id_handler,
         M,
-        C,
-        id_covariate,
-        se_idx,
-        ca_idx,
-        bin_idx,
-        interactions,
+        C=None,
+        id_covariate=None,
+        se_idx=None,
+        ca_idx=None,
+        bin_idx=None,
+        interactions=None,
         basis_func="hs",
         scale=0.2,
         alpha=1.0,
@@ -523,6 +525,16 @@ class DGBFGP(nn.Module):
         **kwargs,
     ):
         super().__init__()
+        if se_idx is None:
+            se_idx = []
+        if ca_idx is None:
+            ca_idx = []
+        if bin_idx is None:
+            bin_idx = []
+        if interactions is None:
+            interactions = []
+        if C is None:
+            C = []
         assert basis_func in [
             "regff",
             "hs",
@@ -539,7 +551,8 @@ class DGBFGP(nn.Module):
         self.encode_y = encode_y
 
         id_idx = []
-        if id_handler == "onehot":
+        embed_model = None
+        if id_handler == "onehot" and id_covariate is not None:
             id_embed_dim = P
             embed_model = OneHotEncoder(P)
             id_idx = [id_covariate]

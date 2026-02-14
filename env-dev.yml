@@ -9,5 +9,6 @@ dependencies:
   - seaborn=0.13.2
   - optuna=4.4.0
   - notebook=7.0.6
+  - streamlit=1.54.0
 variables:
   CONDA_PLUGINS_AUTO_ACCEPT_TOS: true

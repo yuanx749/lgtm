@@ -3,17 +3,22 @@ import torch
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
-
 from utils import clr, multi_replace
 
 
 class MetagenomeDataset(Dataset):
 
-    def __init__(self, y, x_num, x_cat, train_idx=slice(None), transform=None):
+    def __init__(
+        self,
+        y,
+        x_num,
+        x_cat,
+        train_idx=slice(None),
+        transform=None,
+    ):
         if transform == "clr":
-            self.y = clr(multi_replace(y))
-        else:
-            self.y = y
+            y = clr(multi_replace(y))
+        self.y = y
         self.y_mask = ~np.isnan(y)
         self.scaler = StandardScaler().fit(x_num[train_idx])
         x_num = self.scaler.transform(x_num)
@@ -42,12 +47,13 @@ class MetagenomeDataset(Dataset):
         x_mask = torch.from_numpy(x_mask)
 
         sample = {
+            "idx": idx,
             "y": y,
             "x": x,
-            "idx": idx,
             "y_mask": y_mask,
             "x_mask": x_mask,
         }
+
         return sample
 
 

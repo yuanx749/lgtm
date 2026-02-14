@@ -123,7 +123,6 @@ def train_val_test(
     ).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    best_score = float("inf")
     best_score = (float("inf"), float("inf"))
     best_mse = float("inf")
     best_cce = float("inf")
@@ -317,8 +316,8 @@ def train5folds(attrs, args):
         test_mse_opt_lst.append(recon_tmse)
         test_cce_opt_lst.append(recon_tcce)
 
-    best_mse = test_mse = np.mean(test_mse_lst)
-    best_cce = test_cce = np.mean(test_cce_lst)
+    best_mse = test_mse = np.mean(test_mse_lst).item()
+    best_cce = test_cce = np.mean(test_cce_lst).item()
     results = dict(
         best_mse=best_mse,
         best_cce=best_cce,
@@ -326,18 +325,22 @@ def train5folds(attrs, args):
         test_cce=test_cce,
     )
     if args.linear_decoded:
-        jsd = np.mean(jsd_lst)
-        bcd = np.mean(bcd_lst)
-        cos = np.mean(cos_lst)
+        jsd = np.mean(jsd_lst).item()
+        bcd = np.mean(bcd_lst).item()
+        cos = np.mean(cos_lst).item()
         results.update(
             jsd=jsd,
             bcd=bcd,
             cos=cos,
         )
-    recon_tmse = np.mean(test_mse_opt_lst)
-    recon_tcce = np.mean(test_cce_opt_lst)
+    recon_tmse = np.mean(test_mse_opt_lst).item()
+    recon_tcce = np.mean(test_cce_opt_lst).item()
     results.update(
         recon_tcce=recon_tcce,
+    )
+    results.update(
+        test_cce_folds=test_cce_lst,
+        recon_tcce_folds=test_cce_opt_lst,
     )
     return results
 
