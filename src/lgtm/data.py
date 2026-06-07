@@ -3,7 +3,7 @@ import torch
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
-from utils import clr, multi_replace
+from lgtm.utils import clr, multi_replace
 
 
 class MetagenomeDataset(Dataset):

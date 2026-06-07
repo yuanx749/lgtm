@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from config import args as base_args
-from data import MetagenomeDataset
-from train import train1
-from utils import get_sobol_indices
+from lgtm.config import args as base_args
+from lgtm.data import MetagenomeDataset
+from lgtm.train import train1
+from lgtm.utils import get_sobol_indices
 
 
 REQUIRED_METADATA_COLUMNS = ("sample_id", "subject_id", "time")

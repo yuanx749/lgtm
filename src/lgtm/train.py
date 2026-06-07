@@ -15,9 +15,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from data import MetagenomeDataset, split_forecast, split_impute
-from model import DGBFGP
-from utils import (
+from lgtm.data import MetagenomeDataset, split_forecast, split_impute
+from lgtm.model import DGBFGP
+from lgtm.utils import (
     get_vars,
     pw_bcd_min,
     pw_cos_min,
@@ -490,8 +490,8 @@ if __name__ == "__main__":
     namespace, _ = parser_dataset.parse_known_args()
     cohort = namespace.cohort
 
-    config = importlib.import_module("config")
-    attrs = importlib.import_module(f"{cohort}_data")
+    config = importlib.import_module("lgtm.config")
+    attrs = importlib.import_module(f"scripts.{cohort}_data")
     args = getattr(config, "args")
 
     parser = argparse.ArgumentParser()

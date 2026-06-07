@@ -20,20 +20,9 @@ Linux is recommended.
 
 ## Usage
 
-As a demo, first download the public HMP2 dataset, then open `hmp_gp.ipynb` for training and visualization.
+As a demo, first download the public HMP2 dataset, then open `examples/hmp_gp.ipynb` for training and visualization.
 
 ```bash
-chmod +x hmp_download.sh
-./hmp_download.sh
+chmod +x scripts/hmp_download.sh
+./scripts/hmp_download.sh
 ```
-
-## Notes
-
-- `hmp_data.py`: Data preprocessing and exploration.
-- `data.py`: Data loading and splitting.
-- `model.py`: Model implementation.
-- `train.py`: Training functions; can be used as a command-line interface.
-- `config.py`: Model and training configuration.
-- `tune.py`: Hyperparameter tuning (recommended on clusters).
-- `utils.py`: Utility functions.
-- Other files implement baseline methods used for comparison.

@@ -7,7 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 # %%
-folder = Path("hmp")
+folder = Path("data/hmp")
 metadata_file = folder / "hmp2_metadata_2018-08-20.csv"
 metadata = pd.read_csv(metadata_file, low_memory=False)
 df_meta = metadata.loc[

@@ -4,6 +4,7 @@ import gc
 import importlib
 import pprint
 import random
+import sys
 import time
 from pathlib import Path
 
@@ -14,9 +15,12 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from data import MetagenomeDataset, split_impute, split_forecast
-from model_simple import SimpleVAE
-from utils import get_vars, pw_cos_min, pw_jsd_min, pw_bcd_min, pw_topic_distance
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from scripts.model_simple import SimpleVAE
+from lgtm.data import MetagenomeDataset, split_forecast, split_impute
+from lgtm.utils import get_vars, pw_bcd_min, pw_cos_min, pw_jsd_min, pw_topic_distance
 
 
 def train_epoch(args, dataloader, model, optimizer=None):

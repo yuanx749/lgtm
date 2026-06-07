@@ -1,18 +1,18 @@
 import io
-import sys
 import zipfile
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from utils_plot import plot_gp, plot_latent, plot_si_heatmap, plot_topic, plot_topics
-from api.backend import (
+from lgtm.utils_plot import (
+    plot_gp,
+    plot_latent,
+    plot_si_heatmap,
+    plot_topic,
+    plot_topics,
+)
+from lgtm.api.backend import (
     REQUIRED_METADATA_COLUMNS,
     prepare_data,
     read_table,

@@ -1,6 +1,7 @@
 import argparse
 import importlib
 import pprint
+import sys
 import time
 from pathlib import Path
 
@@ -12,9 +13,12 @@ from pypots.nn.modules.loss import MSE, Criterion
 from pypots.optim import Adam
 from pypots.utils.random import set_random_seed
 
-from data import split_impute, split_forecast
-from utils import clr, get_vars, multi_replace
-from utils2 import calc_mse, calc_cce
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from scripts.utils2 import calc_cce, calc_mse
+from lgtm.data import split_forecast, split_impute
+from lgtm.utils import clr, get_vars, multi_replace
 
 class CCE(Criterion):
     def __init__(self, masked=False):

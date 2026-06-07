@@ -3,12 +3,16 @@ import importlib
 import json
 import os
 import pprint
+import sys
 import time
 from pathlib import Path
 
 import optuna
 
-from utils import get_vars
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from lgtm.utils import get_vars
 
 
 def objective(train_func, attrs, args, trial: optuna.trial.Trial):
@@ -131,7 +135,7 @@ def write_summary(args, results, study, log_name):
 
 if __name__ == "__main__":
 
-    from train import train1fold, train5folds, train1
+    from lgtm.train import train1, train1fold, train5folds
 
     cohort = "hmp"
 
@@ -140,8 +144,8 @@ if __name__ == "__main__":
     namespace, _ = parser_dataset.parse_known_args()
     cohort = namespace.cohort
 
-    config = importlib.import_module("config")
-    attrs = importlib.import_module(f"{cohort}_data")
+    config = importlib.import_module("lgtm.config")
+    attrs = importlib.import_module(f"scripts.{cohort}_data")
     args = getattr(config, "args")
 
     parser = argparse.ArgumentParser()
