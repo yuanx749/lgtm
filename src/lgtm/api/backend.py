@@ -61,6 +61,57 @@ class TrainingOutput:
     var_y: np.ndarray
 
 
+@dataclass
+class LGTMConfig:
+    """Training configuration for the LGTM Python API.
+
+    Parameters
+    ----------
+    latent_dim : int, default=6
+        Number of latent topics.
+    n_epoch : int, default=100
+        Number of training epochs.
+    batch_size : int, default=64
+        Mini-batch size used by the PyTorch data loader.
+    learning_rate : float, default=0.05
+        Adam optimizer learning rate.
+    hidden_dim : int, default=64
+        Hidden dimension in the encoder network.
+    seed : int, default=42
+        Random seed used for PyTorch, NumPy, and Python random.
+    n_basis_functions : int, default=5
+        Number of Hilbert-space basis functions used for the SE kernel
+        approximation.
+    kl_weight : float, default=0.001
+        Weight of the GP KL regularization term.
+    mc_samples : int, default=1
+        Number of Monte Carlo samples used during stochastic training.
+    patience : int, default=0
+        Early stopping patience. The full-data fit uses the training data as
+        validation data when early stopping is enabled.
+    early_stop : bool, default=True
+        Whether to enable early stopping in the full-data training routine.
+    init_topics : bool, default=True
+        Whether to initialize topic loadings with NNDSVD.
+    use_encoder : bool, default=True
+        Whether to use the encoder pathway during training.
+    """
+
+    latent_dim: int = 6
+    n_epoch: int = 100
+    batch_size: int = 64
+    learning_rate: float = 0.05
+    hidden_dim: int = 64
+    seed: int = 42
+    n_basis_functions: int = 5
+    kl_weight: float = 0.001
+    mc_samples: int = 1
+    patience: int = 0
+    early_stop: bool = True
+    init_topics: bool = True
+    use_encoder: bool = True
+
+
 def read_table(file_obj, filename):
     suffix = Path(filename).suffix.lower()
     if suffix == ".csv":
@@ -208,10 +259,22 @@ def prepare_data(metadata, microbiome):
     )
 
 
-def _build_train_args(latent_dim):
+def _build_train_args(config):
     args = copy.deepcopy(base_args)
     args.cohort = ""
-    args.latent_dim = int(latent_dim)
+    args.latent_dim = int(config.latent_dim)
+    args.n_epoch = config.n_epoch
+    args.batch_size = config.batch_size
+    args.lr = config.learning_rate
+    args.hidden_dim = config.hidden_dim
+    args.seed = config.seed
+    args.M = config.n_basis_functions
+    args.b = config.kl_weight
+    args.k = config.mc_samples
+    args.patience = config.patience
+    args.early_stop = config.early_stop
+    args.init_b = config.init_topics
+    args.encode_y = config.use_encoder
     args.name = f"lgtm-L{args.latent_dim}"
     return args
 
@@ -235,8 +298,43 @@ def _build_sobol_func(model, attrs):
     return _func
 
 
-def train_and_analyze(prepared, latent_dim):
-    args = _build_train_args(latent_dim)
+def train_and_analyze(
+    prepared,
+    latent_dim=None,
+    n_epoch=None,
+    batch_size=None,
+    learning_rate=None,
+    hidden_dim=None,
+    seed=None,
+    n_basis_functions=None,
+    kl_weight=None,
+    mc_samples=None,
+    patience=None,
+    early_stop=None,
+    init_topics=None,
+    use_encoder=None,
+    config=None,
+):
+    if config is None:
+        config = LGTMConfig() if latent_dim is None else LGTMConfig(latent_dim=latent_dim)
+        overrides = {
+            "n_epoch": n_epoch,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            "hidden_dim": hidden_dim,
+            "seed": seed,
+            "n_basis_functions": n_basis_functions,
+            "kl_weight": kl_weight,
+            "mc_samples": mc_samples,
+            "patience": patience,
+            "early_stop": early_stop,
+            "init_topics": init_topics,
+            "use_encoder": use_encoder,
+        }
+        for name, value in overrides.items():
+            if value is not None:
+                setattr(config, name, value)
+    args = _build_train_args(config)
     results = train1(prepared.attrs, args)
     model = results["artifacts"]["model"]
     model.eval()
@@ -266,18 +364,30 @@ def train_and_analyze(prepared, latent_dim):
 
 
 def sample_topic_to_csv(theta, sample_ids, topic_order=None):
+    df = sample_topic_frame(theta, sample_ids, topic_order=topic_order)
+    return df.to_csv(index=True).encode("utf-8")
+
+
+def topic_taxon_to_csv(beta, taxa, topic_order=None):
+    df = topic_taxon_frame(beta, taxa, topic_order=topic_order)
+    return df.to_csv(index=True).encode("utf-8")
+
+
+def sample_topic_frame(theta, sample_ids, topic_order=None):
+    """Return sample-topic proportions as a labeled table."""
     if topic_order is not None:
         theta = theta[:, topic_order]
     cols = [f"topic-{i + 1}" for i in range(theta.shape[1])]
     df = pd.DataFrame(theta, index=sample_ids, columns=cols)
     df.index.name = "sample_id"
-    return df.to_csv(index=True).encode("utf-8")
+    return df
 
 
-def topic_taxon_to_csv(beta, taxa, topic_order=None):
+def topic_taxon_frame(beta, taxa, topic_order=None):
+    """Return topic-taxon loadings as a labeled table."""
     if topic_order is not None:
         beta = beta[topic_order, :]
     row_names = [f"topic-{i + 1}" for i in range(beta.shape[0])]
     df = pd.DataFrame(beta, index=row_names, columns=taxa)
     df.index.name = "topic"
-    return df.to_csv(index=True).encode("utf-8")
+    return df
