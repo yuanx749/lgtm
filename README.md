@@ -4,6 +4,10 @@ Code for LGTM: Gaussian Process Modulated Neural Topic Modeling for Longitudinal
 
 Live demo: https://lgtm-web.streamlit.app/
 
+R interface: [installation and usage](r/README.md).
+
+Contact: Xiao Yuan ([yuanx749@gmail.com](mailto:yuanx749@gmail.com)).
+
 ## Installation
 
 Linux is recommended.

@@ -1,0 +1,18 @@
+Package: lgtm
+Title: R Interface to LGTM
+Version: 0.2.0
+Authors@R: person("Xiao", "Yuan", email = "yuanx749@gmail.com",
+    role = c("aut", "cre"))
+Description: An interface to longitudinal Gaussian process modulated neural
+    topic modeling for microbiome data analysis.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports:
+    grid,
+    png,
+    reticulate (>= 1.41.0)
+SystemRequirements: Python 3.10.14
+URL: https://github.com/yuanx749/lgtm
+BugReports: https://github.com/yuanx749/lgtm/issues
+Config/roxygen2/version: 8.1.0
