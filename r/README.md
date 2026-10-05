@@ -1,6 +1,6 @@
 # LGTM for R
 
-An R interface to the [LGTM Python package](../README.md).
+An R interface to the [LGTM Python package](https://yuanx749.github.io/lgtm/).
 
 ## Installation
 

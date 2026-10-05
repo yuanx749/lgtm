@@ -2,7 +2,7 @@
 
 Code for LGTM: Gaussian Process Modulated Neural Topic Modeling for Longitudinal Microbiome.
 
-Live demo: https://lgtm-web.streamlit.app/
+Live demo: <https://lgtm-web.streamlit.app/>
 
 R interface: [installation and usage](r/README.md).
 
